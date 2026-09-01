@@ -29,6 +29,7 @@
 
   html {
     scroll-behavior: smooth;
+    @apply bg-bg text-fg;
   }
 
   body {
@@ -38,7 +39,7 @@
 
 @layer components {
   .btn-primary {
-    @apply inline-flex h-11 items-center rounded-md bg-accent px-5 text-sm font-medium text-accent-fg transition-colors hover:bg-opacity-90 active:bg-opacity-80;
+    @apply inline-flex h-11 items-center rounded-md bg-accent px-5 text-sm font-medium text-accent-fg transition-colors hover:opacity-90 active:opacity-80;
   }
 
   .btn-secondary {
