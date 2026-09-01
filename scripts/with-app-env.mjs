@@ -1,9 +1,5 @@
 #!/usr/bin/env node
 import { execSync } from 'child_process';
-import { config } from 'dotenv';
-
-// Load environment variables from .env file if it exists
-config();
 
 // Execute the command passed as arguments
 const args = process.argv.slice(2);
