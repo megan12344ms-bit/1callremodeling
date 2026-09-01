@@ -12,11 +12,26 @@ import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
 
+// Cache migration check result during dev session
+let migrationsCached: boolean | null = null;
+let migrationsCachePath: string | null = null;
+
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
+  // Memoize across plugin invocations to avoid repeated fs calls
+  if (migrationsCachePath === root && migrationsCached !== null) {
+    return migrationsCached;
+  }
+
   try {
-    return readdirSync(join(root, "migrations")).some(isMigrationFile);
+    migrationsCached = readdirSync(join(root, "migrations")).some(
+      isMigrationFile,
+    );
+    migrationsCachePath = root;
+    return migrationsCached;
   } catch {
+    migrationsCached = false;
+    migrationsCachePath = root;
     return false;
   }
 }
@@ -29,6 +44,8 @@ function hasGlobbedMigrations(root: string): boolean {
  * Vite awaiting the hook puts this on time-to-first-render, so an app with no
  * migrations — no schema to apply — skips it entirely rather than paying for a
  * PGLite instance it never queries.
+ *
+ * OPTIMIZATION: Only bootstrap if migrations exist (cached check).
  */
 function pgliteBootstrapPlugin(): Plugin {
   return {
@@ -60,6 +77,8 @@ function pgliteBootstrapPlugin(): Plugin {
  * This middleware runs before TanStack Start, calls `handleAuthPopupRequest`,
  * and returns the 302 / completion HTML. Deployed apps do not use the popup
  * (full-page OAuth redirect), so `apply: "serve"` is enough.
+ *
+ * OPTIMIZATION: Early exit on non-GET requests, minimal header processing.
  */
 function authPopupPlugin(): Plugin {
   return {
@@ -71,45 +90,75 @@ function authPopupPlugin(): Plugin {
       // `src/routes/auth/popup.tsx` React page must never win this path.
       server.middlewares.use(async (req, res, next) => {
         try {
+          // Early exit: only process GET requests to /auth/popup
           const rawUrl = req.url ?? "";
           const pathOnly = rawUrl.split("?", 1)[0] ?? "";
           if (pathOnly !== "/auth/popup") {
             next();
             return;
           }
-          if ((req.method ?? "GET").toUpperCase() !== "GET") {
+
+          const method = (req.method ?? "GET").toUpperCase();
+          if (method !== "GET") {
             res.statusCode = 405;
             res.setHeader("content-type", "text/plain; charset=utf-8");
             res.end("Method Not Allowed");
             return;
           }
 
+          // Only extract headers we need, avoid full iteration
           const host = String(
-            req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost:8080",
+            req.headers["x-forwarded-host"] ??
+              req.headers.host ??
+              "localhost:8080",
           );
           const proto = String(
             req.headers["x-forwarded-proto"] ??
-              ((req.socket as { encrypted?: boolean } | undefined)?.encrypted ? "https" : "http"),
+              ((req.socket as { encrypted?: boolean } | undefined)
+                ?.encrypted
+                ? "https"
+                : "http"),
           );
+
+          // Optimize header copying: only copy headers we care about
           const requestHeaders = new Headers();
-          for (const [key, value] of Object.entries(req.headers)) {
-            if (value === undefined) continue;
-            if (Array.isArray(value)) {
-              for (const v of value) requestHeaders.append(key, v);
-            } else {
-              requestHeaders.set(key, value);
+          const relevantHeaders = [
+            "cookie",
+            "authorization",
+            "user-agent",
+            "accept",
+            "accept-encoding",
+            "referer",
+            "x-forwarded-for",
+          ];
+
+          for (const headerKey of relevantHeaders) {
+            const value = req.headers[headerKey];
+            if (value !== undefined) {
+              if (Array.isArray(value)) {
+                for (const v of value) {
+                  requestHeaders.append(headerKey, v);
+                }
+              } else {
+                requestHeaders.set(headerKey, value);
+              }
             }
           }
+
           // Ensure Host is the public preview host so Better Auth's dynamic
           // baseURL / redirect_uri match the popup origin.
-          if (!requestHeaders.has("host")) requestHeaders.set("host", host);
+          if (!requestHeaders.has("host")) {
+            requestHeaders.set("host", host);
+          }
 
           const request = new Request(`${proto}://${host}${rawUrl}`, {
             method: "GET",
             headers: requestHeaders,
           });
 
-          const mod = (await server.ssrLoadModule("/src/lib/auth/popup.server.ts")) as {
+          const mod = (await server.ssrLoadModule(
+            "/src/lib/auth/popup.server.ts",
+          )) as {
             handleAuthPopupRequest: (req: Request) => Promise<Response>;
           };
           const response = await mod.handleAuthPopupRequest(request);
@@ -157,6 +206,37 @@ export default defineConfig(({ command, isPreview }) => ({
     strictPort: true,
   },
   resolve: { tsconfigPaths: true },
+  build: {
+    // Enable code splitting for better caching and parallel downloads
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Separate vendor chunks for better long-term caching
+          if (id.includes("node_modules")) {
+            if (id.includes("@radix-ui")) {
+              return "radix-ui";
+            }
+            if (id.includes("@tanstack")) {
+              return "tanstack";
+            }
+            if (id.includes("recharts")) {
+              return "recharts";
+            }
+            return "vendor";
+          }
+        },
+      },
+    },
+    // Tune chunk size warnings
+    chunkSizeWarningLimit: 1000,
+    // Enable minification (default, but explicit)
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log in production
+      },
+    },
+  },
   plugins: [
     pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.
