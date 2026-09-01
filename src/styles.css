@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: 0 0% 100%;
+    --fg: 0 0% 3.6%;
+    --accent: 152 57% 36%;
+    --accent-fg: 0 0% 100%;
+    --muted: 0 0% 45.1%;
+    --muted-fg: 0 0% 100%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 152 57% 36%;
+  }
+
+  [data-theme="dark"] {
+    --bg: 0 0% 3.6%;
+    --fg: 0 0% 98%;
+    --accent: 152 57% 36%;
+    --accent-fg: 0 0% 100%;
+    --muted: 0 0% 45.1%;
+    --muted-fg: 0 0% 98%;
+    --border: 0 0% 14.3%;
+    --input: 0 0% 14.3%;
+    --ring: 152 57% 36%;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-bg text-fg;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex h-11 items-center rounded-md bg-accent px-5 text-sm font-medium text-accent-fg transition-colors hover:bg-opacity-90 active:bg-opacity-80;
+  }
+
+  .btn-secondary {
+    @apply inline-flex h-11 items-center rounded-md border border-border bg-transparent px-5 text-sm font-medium text-fg transition-colors hover:bg-muted hover:text-muted-fg;
+  }
+
+  .card {
+    @apply rounded-lg border border-border bg-bg p-6 shadow-sm;
+  }
+
+  .input {
+    @apply flex h-11 w-full rounded-md border border-input bg-bg px-3 py-2 text-base placeholder:text-muted focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50;
+  }
+}
