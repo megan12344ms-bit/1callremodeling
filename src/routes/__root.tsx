@@ -4,22 +4,17 @@ import {
   Outlet,
   Scripts,
 } from "@tanstack/react-router";
-import { AuthProvider } from "@/lib/auth/provider";
-import { PreviewHostBridge } from "@/components/preview-host-bridge";
-import { site } from "@/lib/site";
 import appCss from "../styles.css?url";
-
-const APP_NAME = site.name;
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: `${APP_NAME} · Hartford, AL` },
+      { title: "1Call Remodeling · Hartford, AL" },
       {
         name: "description",
-        content: site.description,
+        content: "Professional remodeling services in Hartford, AL",
       },
       { name: "theme-color", content: "#2f4a3c" },
     ],
@@ -51,10 +46,7 @@ function RootDocument() {
         <HeadContent />
       </head>
       <body>
-        <PreviewHostBridge />
-        <AuthProvider>
-          <Outlet />
-        </AuthProvider>
+        <Outlet />
         <Scripts />
       </body>
     </html>
@@ -63,18 +55,19 @@ function RootDocument() {
 
 function NotFound() {
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-bg px-6 text-center text-fg">
-      <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted">
+    <main className="flex min-h-dvh flex-col items-center justify-center px-6 text-center" style={{ backgroundColor: "hsl(var(--bg))", color: "hsl(var(--fg))" }}>
+      <p className="text-xs font-medium uppercase tracking-[0.16em]" style={{ color: "hsl(var(--muted))" }}>
         404
       </p>
-      <h1 className="mt-3 font-display text-4xl">That page is not here.</h1>
-      <p className="mt-3 max-w-md text-muted">
+      <h1 className="mt-3 text-4xl" style={{ fontFamily: "Fraunces" }}>That page is not here.</h1>
+      <p className="mt-3 max-w-md" style={{ color: "hsl(var(--muted))" }}>
         The link may be old. Head home, or call the shop and we will point you
         the right way.
       </p>
       <a
         href="/"
-        className="mt-8 inline-flex h-11 items-center rounded-md bg-accent px-5 text-sm font-medium text-accent-fg"
+        className="mt-8 inline-flex h-11 items-center rounded-md px-5 text-sm font-medium"
+        style={{ backgroundColor: "hsl(var(--accent))", color: "hsl(var(--accent-fg))" }}
       >
         Back to 1Call
       </a>
